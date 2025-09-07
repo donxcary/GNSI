@@ -14,11 +14,15 @@ const authRoutes = (0, express_1.Router)();
 authRoutes.get("/google", passport_1.default.authenticate("google", { scope: ["profile", "email"] }));
 authRoutes.get("/google/callback", passport_1.default.authenticate("google", { failureRedirect: failedUrl }), authController_1.googleOAuthHandler);
 // GitHub
-authRoutes.get("/github", passport_1.default.authenticate("github", { scope: ["user:email"] }));
-authRoutes.get("/github/callback", passport_1.default.authenticate("github", { failureRedirect: failedUrl }), authController_1.googleOAuthHandler);
+if (appConfig_1.config.GITHUB_CLIENT_ID && appConfig_1.config.GITHUB_CLIENT_SECRET && appConfig_1.config.GITHUB_CALLBACK_URL) {
+    authRoutes.get("/github", passport_1.default.authenticate("github", { scope: ["user:email"] }));
+    authRoutes.get("/github/callback", passport_1.default.authenticate("github", { failureRedirect: failedUrl }), authController_1.googleOAuthHandler);
+}
 // Facebook
-authRoutes.get("/facebook", passport_1.default.authenticate("facebook", { scope: ["email"] }));
-authRoutes.get("/facebook/callback", passport_1.default.authenticate("facebook", { failureRedirect: failedUrl }), authController_1.googleOAuthHandler);
+if (appConfig_1.config.FACEBOOK_CLIENT_ID && appConfig_1.config.FACEBOOK_CLIENT_SECRET && appConfig_1.config.FACEBOOK_CALLBACK_URL) {
+    authRoutes.get("/facebook", passport_1.default.authenticate("facebook", { scope: ["email"] }));
+    authRoutes.get("/facebook/callback", passport_1.default.authenticate("facebook", { failureRedirect: failedUrl }), authController_1.googleOAuthHandler);
+}
 exports.default = authRoutes;
 // Email registration
 authRoutes.post("/email/register", (0, asyncHandler_middleware_1.asyncHandler)(async (req, res) => {

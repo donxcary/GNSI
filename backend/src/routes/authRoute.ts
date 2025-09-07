@@ -20,26 +20,30 @@ authRoutes.get(
 );
 
 // GitHub
-authRoutes.get(
-    "/github",
-    passport.authenticate("github", { scope: ["user:email"] })
-);
-authRoutes.get(
-    "/github/callback",
-    passport.authenticate("github", { failureRedirect: failedUrl }),
-    googleOAuthHandler
-);
+if (config.GITHUB_CLIENT_ID && config.GITHUB_CLIENT_SECRET && config.GITHUB_CALLBACK_URL) {
+    authRoutes.get(
+        "/github",
+        passport.authenticate("github", { scope: ["user:email"] })
+    );
+    authRoutes.get(
+        "/github/callback",
+        passport.authenticate("github", { failureRedirect: failedUrl }),
+        googleOAuthHandler
+    );
+}
 
 // Facebook
-authRoutes.get(
-    "/facebook",
-    passport.authenticate("facebook", { scope: ["email"] })
-);
-authRoutes.get(
-    "/facebook/callback",
-    passport.authenticate("facebook", { failureRedirect: failedUrl }),
-    googleOAuthHandler
-);
+if (config.FACEBOOK_CLIENT_ID && config.FACEBOOK_CLIENT_SECRET && config.FACEBOOK_CALLBACK_URL) {
+    authRoutes.get(
+        "/facebook",
+        passport.authenticate("facebook", { scope: ["email"] })
+    );
+    authRoutes.get(
+        "/facebook/callback",
+        passport.authenticate("facebook", { failureRedirect: failedUrl }),
+        googleOAuthHandler
+    );
+}
 
 export default authRoutes;
 

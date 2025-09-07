@@ -38,56 +38,60 @@ passport_1.default.use(new passport_google_oauth20_1.Strategy({
         done(error, false);
     }
 }));
-passport_1.default.use(new passport_github2_1.Strategy({
-    clientID: appConfig_1.config.GITHUB_CLIENT_ID,
-    clientSecret: appConfig_1.config.GITHUB_CLIENT_SECRET,
-    callbackURL: appConfig_1.config.GITHUB_CALLBACK_URL,
-    scope: ["user:email"],
-    passReqToCallback: true,
-}, async (req, accessToken, refreshToken, profile, done) => {
-    try {
-        const email = Array.isArray(profile.emails) && profile.emails.length > 0 ? profile.emails[0].value : undefined;
-        const githubId = profile.id;
-        if (!githubId)
-            throw new appError_1.NotFoundError("GitHub ID is missing");
-        const { user } = await (0, auth_service_1.loginOrCreateAccountService)({
-            provider: accProvider_1.ProviderEnum.GITHUB,
-            displayName: profile.displayName || profile.username || "GitHub User",
-            providerId: githubId,
-            picture: profile.photos && profile.photos[0] ? profile.photos[0].value : undefined,
-            email,
-        });
-        done(null, user);
-    }
-    catch (error) {
-        done(error, false);
-    }
-}));
-passport_1.default.use(new passport_facebook_1.Strategy({
-    clientID: appConfig_1.config.FACEBOOK_CLIENT_ID,
-    clientSecret: appConfig_1.config.FACEBOOK_CLIENT_SECRET,
-    callbackURL: appConfig_1.config.FACEBOOK_CALLBACK_URL,
-    profileFields: ["id", "emails", "name", "displayName", "photos"],
-    enableProof: true,
-    passReqToCallback: true,
-}, async (req, accessToken, refreshToken, profile, done) => {
-    try {
-        const email = Array.isArray(profile.emails) && profile.emails.length > 0 ? profile.emails[0].value : undefined;
-        const facebookId = profile.id;
-        if (!facebookId)
-            throw new appError_1.NotFoundError("Facebook ID is missing");
-        const { user } = await (0, auth_service_1.loginOrCreateAccountService)({
-            provider: accProvider_1.ProviderEnum.FACEBOOK,
-            displayName: profile.displayName || `${profile.name?.givenName || ""} ${profile.name?.familyName || ""}`.trim(),
-            providerId: facebookId,
-            picture: profile.photos && profile.photos[0] ? profile.photos[0].value : undefined,
-            email,
-        });
-        done(null, user);
-    }
-    catch (error) {
-        done(error, false);
-    }
-}));
+if (appConfig_1.config.GITHUB_CLIENT_ID && appConfig_1.config.GITHUB_CLIENT_SECRET && appConfig_1.config.GITHUB_CALLBACK_URL) {
+    passport_1.default.use(new passport_github2_1.Strategy({
+        clientID: appConfig_1.config.GITHUB_CLIENT_ID,
+        clientSecret: appConfig_1.config.GITHUB_CLIENT_SECRET,
+        callbackURL: appConfig_1.config.GITHUB_CALLBACK_URL,
+        scope: ["user:email"],
+        passReqToCallback: true,
+    }, async (req, accessToken, refreshToken, profile, done) => {
+        try {
+            const email = Array.isArray(profile.emails) && profile.emails.length > 0 ? profile.emails[0].value : undefined;
+            const githubId = profile.id;
+            if (!githubId)
+                throw new appError_1.NotFoundError("GitHub ID is missing");
+            const { user } = await (0, auth_service_1.loginOrCreateAccountService)({
+                provider: accProvider_1.ProviderEnum.GITHUB,
+                displayName: profile.displayName || profile.username || "GitHub User",
+                providerId: githubId,
+                picture: profile.photos && profile.photos[0] ? profile.photos[0].value : undefined,
+                email,
+            });
+            done(null, user);
+        }
+        catch (error) {
+            done(error, false);
+        }
+    }));
+}
+if (appConfig_1.config.FACEBOOK_CLIENT_ID && appConfig_1.config.FACEBOOK_CLIENT_SECRET && appConfig_1.config.FACEBOOK_CALLBACK_URL) {
+    passport_1.default.use(new passport_facebook_1.Strategy({
+        clientID: appConfig_1.config.FACEBOOK_CLIENT_ID,
+        clientSecret: appConfig_1.config.FACEBOOK_CLIENT_SECRET,
+        callbackURL: appConfig_1.config.FACEBOOK_CALLBACK_URL,
+        profileFields: ["id", "emails", "name", "displayName", "photos"],
+        enableProof: true,
+        passReqToCallback: true,
+    }, async (req, accessToken, refreshToken, profile, done) => {
+        try {
+            const email = Array.isArray(profile.emails) && profile.emails.length > 0 ? profile.emails[0].value : undefined;
+            const facebookId = profile.id;
+            if (!facebookId)
+                throw new appError_1.NotFoundError("Facebook ID is missing");
+            const { user } = await (0, auth_service_1.loginOrCreateAccountService)({
+                provider: accProvider_1.ProviderEnum.FACEBOOK,
+                displayName: profile.displayName || `${profile.name?.givenName || ""} ${profile.name?.familyName || ""}`.trim(),
+                providerId: facebookId,
+                picture: profile.photos && profile.photos[0] ? profile.photos[0].value : undefined,
+                email,
+            });
+            done(null, user);
+        }
+        catch (error) {
+            done(error, false);
+        }
+    }));
+}
 passport_1.default.serializeUser((user, done) => done(null, user));
 passport_1.default.deserializeUser((user, done) => done(null, user));
