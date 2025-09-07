@@ -142,7 +142,7 @@ export const loginOrCreateAccountService = async (data: {
         }
         throw error;
     }
-}
+};
 
 // Email registration flow (no transactions in development)
 export const registerWithEmailService = async (data: {
@@ -231,4 +231,14 @@ export const loginWithEmailService = async (data: {
     const ok = await compareValues(password, user.password);
     if (!ok) throw new UnauthorizedError("Invalid credentials");
     return { user };
+};
+
+export const registerUserService = async (body: {
+    email: string,
+    name: string,
+    password: string,
+}) => {
+    const { email, name, password } = body;
+    const session = await mongoose.startSession();
+    try
 };

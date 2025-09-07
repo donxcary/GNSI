@@ -1,6 +1,9 @@
+import exp from "constants";
 import { config } from "../config/appConfig";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
 import { Request, Response } from "express";
+import { HTTPSTATUS } from "../config/httpConfig";
+import { registerSchema } from "../validation/authValidation";
 
 
 export const googleOAuthHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -18,4 +21,16 @@ export const googleOAuthHandler = asyncHandler(async (req: Request, res: Respons
     //   user: req.user,
     //   currentWorkspace: currentWorkspace,
     // });
+});
+
+
+export const registerUserController = asyncHandler(async (req: Request, res: Response) => {
+    // User is authenticated and available in req.user
+    const body = registerSchema.parse({ ... req.body});
+    await registerUserService(body);
+    return res.status(HTTPSTATUS.CREATED).json({
+        status: "success",
+        message: "User registration successful",
+        data: body,
+    });
 });
