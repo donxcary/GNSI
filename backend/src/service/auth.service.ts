@@ -4,7 +4,7 @@ import AccountModel from "../models/accountModel";
 import WorkspaceModel from "../models/workspaceModel";
 import RoleModel from "../models/roleModel";
 import { Roles } from "../enums/role";
-import { NotFoundError } from "../utils/appError";
+import { NotFoundError, UnauthorizedError, BadRequestError } from "../utils/appError";
 import MemberModel from "../models/memberModel";
 import { compareValues } from "../utils/bcrypt";
 
@@ -29,9 +29,42 @@ export const loginOrCreateAccountService = async (data: {
         console.log("Session Start...");
         // Use session only when available
         const s = session || undefined;
-        let userQuery = UserModel.findOne({ email });
-        if (s) userQuery = userQuery.session(s);
-        let user = await userQuery;
+
+        // 1) First, try to find an existing account by provider + providerId
+        let existingAccountQuery = AccountModel.findOne({ provider: provider as any, providerId });
+        if (s) existingAccountQuery = existingAccountQuery.session(s);
+        const existingAccount = await existingAccountQuery;
+
+        if (existingAccount) {
+            // Provider and providerId match — load the user and return
+            let userByAccountQuery = UserModel.findById(existingAccount.userId);
+            if (s) userByAccountQuery = userByAccountQuery.session(s);
+            const user = await userByAccountQuery;
+            if (!user) throw new NotFoundError("User for account not found");
+            if (session) {
+                await session.commitTransaction();
+                session.endSession();
+            }
+            console.log("Session End...");
+            return { user };
+        }
+
+        // 2) No matching provider account. If email maps to an existing user, block cross-provider login.
+        let userQuery = email ? UserModel.findOne({ email }) : null;
+        if (s && userQuery) userQuery = userQuery.session(s) as any;
+        let user = userQuery ? await userQuery : null;
+        if (user) {
+            // Find user providers to show a helpful error
+            let providersQuery = AccountModel.find({ userId: user._id }).select("provider");
+            if (s) providersQuery = providersQuery.session(s) as any;
+            const accounts = await providersQuery;
+            const providers = accounts.map((a) => a.provider).join(", ");
+            throw new UnauthorizedError(
+                providers
+                    ? `This email is registered with: ${providers}. Please sign in using the same provider.`
+                    : `This email is already registered. Please sign in using the original provider.`
+            );
+        }
 
         if (!user) {
             user = new UserModel({
@@ -100,7 +133,7 @@ export const loginOrCreateAccountService = async (data: {
             session.endSession();
         }
         console.log("Session End...");
-        return { user };
+    return { user };
     } catch (error) {
         console.error("Error occurred during login or account creation:", error);
         if (session) {
@@ -122,7 +155,15 @@ export const registerWithEmailService = async (data: {
     // Check if user exists
     let existing = await UserModel.findOne({ email });
     if (existing) {
-        throw new Error("Email already registered");
+        // Check providers tied to this user
+        const existingAccounts = await AccountModel.find({ userId: existing._id }).select("provider");
+        const providers = existingAccounts.map((a) => a.provider);
+        if (providers.includes("email" as any)) {
+            throw new BadRequestError("Email already registered");
+        }
+        throw new UnauthorizedError(
+            `This email is already registered with: ${providers.join(", ")}. Please sign in with that provider.`
+        );
     }
 
     // Create user
@@ -174,9 +215,20 @@ export const loginWithEmailService = async (data: {
     const { email, password } = data;
     const user = await UserModel.findOne({ email });
     if (!user || !user.password) {
-        throw new Error("Invalid credentials");
+        throw new UnauthorizedError("Invalid credentials");
+    }
+    // Ensure this user has an EMAIL provider account
+    const emailAccount = await AccountModel.findOne({ userId: user._id, provider: "email" as any });
+    if (!emailAccount) {
+        const otherAccounts = await AccountModel.find({ userId: user._id }).select("provider");
+        const providers = otherAccounts.map((a) => a.provider).join(", ");
+        throw new UnauthorizedError(
+            providers
+                ? `This email is registered with: ${providers}. Please sign in using the same provider.`
+                : "This account is not configured for email login."
+        );
     }
     const ok = await compareValues(password, user.password);
-    if (!ok) throw new Error("Invalid credentials");
+    if (!ok) throw new UnauthorizedError("Invalid credentials");
     return { user };
 };

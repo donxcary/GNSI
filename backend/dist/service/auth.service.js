@@ -27,10 +27,42 @@ const loginOrCreateAccountService = async (data) => {
         console.log("Session Start...");
         // Use session only when available
         const s = session || undefined;
-        let userQuery = userModel_1.default.findOne({ email });
+        // 1) First, try to find an existing account by provider + providerId
+        let existingAccountQuery = accountModel_1.default.findOne({ provider: provider, providerId });
         if (s)
+            existingAccountQuery = existingAccountQuery.session(s);
+        const existingAccount = await existingAccountQuery;
+        if (existingAccount) {
+            // Provider and providerId match — load the user and return
+            let userByAccountQuery = userModel_1.default.findById(existingAccount.userId);
+            if (s)
+                userByAccountQuery = userByAccountQuery.session(s);
+            const user = await userByAccountQuery;
+            if (!user)
+                throw new appError_1.NotFoundError("User for account not found");
+            if (session) {
+                await session.commitTransaction();
+                session.endSession();
+            }
+            console.log("Session End...");
+            return { user };
+        }
+        // 2) No matching provider account. If email maps to an existing user, block cross-provider login.
+        let userQuery = email ? userModel_1.default.findOne({ email }) : null;
+        if (s && userQuery)
             userQuery = userQuery.session(s);
-        let user = await userQuery;
+        let user = userQuery ? await userQuery : null;
+        if (user) {
+            // Find user providers to show a helpful error
+            let providersQuery = accountModel_1.default.find({ userId: user._id }).select("provider");
+            if (s)
+                providersQuery = providersQuery.session(s);
+            const accounts = await providersQuery;
+            const providers = accounts.map((a) => a.provider).join(", ");
+            throw new appError_1.UnauthorizedError(providers
+                ? `This email is registered with: ${providers}. Please sign in using the same provider.`
+                : `This email is already registered. Please sign in using the original provider.`);
+        }
         if (!user) {
             user = new userModel_1.default({
                 email,
@@ -117,7 +149,13 @@ const registerWithEmailService = async (data) => {
     // Check if user exists
     let existing = await userModel_1.default.findOne({ email });
     if (existing) {
-        throw new Error("Email already registered");
+        // Check providers tied to this user
+        const existingAccounts = await accountModel_1.default.find({ userId: existing._id }).select("provider");
+        const providers = existingAccounts.map((a) => a.provider);
+        if (providers.includes("email")) {
+            throw new appError_1.BadRequestError("Email already registered");
+        }
+        throw new appError_1.UnauthorizedError(`This email is already registered with: ${providers.join(", ")}. Please sign in with that provider.`);
     }
     // Create user
     let user = new userModel_1.default({
@@ -160,11 +198,20 @@ const loginWithEmailService = async (data) => {
     const { email, password } = data;
     const user = await userModel_1.default.findOne({ email });
     if (!user || !user.password) {
-        throw new Error("Invalid credentials");
+        throw new appError_1.UnauthorizedError("Invalid credentials");
+    }
+    // Ensure this user has an EMAIL provider account
+    const emailAccount = await accountModel_1.default.findOne({ userId: user._id, provider: "email" });
+    if (!emailAccount) {
+        const otherAccounts = await accountModel_1.default.find({ userId: user._id }).select("provider");
+        const providers = otherAccounts.map((a) => a.provider).join(", ");
+        throw new appError_1.UnauthorizedError(providers
+            ? `This email is registered with: ${providers}. Please sign in using the same provider.`
+            : "This account is not configured for email login.");
     }
     const ok = await (0, bcrypt_1.compareValues)(password, user.password);
     if (!ok)
-        throw new Error("Invalid credentials");
+        throw new appError_1.UnauthorizedError("Invalid credentials");
     return { user };
 };
 exports.loginWithEmailService = loginWithEmailService;
