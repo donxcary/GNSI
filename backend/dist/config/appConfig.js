@@ -12,6 +12,12 @@ const appConfig = () => ({
     GOOGLE_CLIENT_ID: (0, getEvn_1.getEnv)("GOOGLE_CLIENT_ID", ""),
     GOOGLE_CLIENT_SECRET: (0, getEvn_1.getEnv)("GOOGLE_CLIENT_SECRET", ""),
     GOOGLE_CALLBACK_URL: (0, getEvn_1.getEnv)("GOOGLE_CALLBACK_URL", ""),
+    GITHUB_CLIENT_ID: (0, getEvn_1.getEnv)("GITHUB_CLIENT_ID", ""),
+    GITHUB_CLIENT_SECRET: (0, getEvn_1.getEnv)("GITHUB_CLIENT_SECRET", ""),
+    GITHUB_CALLBACK_URL: (0, getEvn_1.getEnv)("GITHUB_CALLBACK_URL", ""),
+    FACEBOOK_CLIENT_ID: (0, getEvn_1.getEnv)("FACEBOOK_CLIENT_ID", ""),
+    FACEBOOK_CLIENT_SECRET: (0, getEvn_1.getEnv)("FACEBOOK_CLIENT_SECRET", ""),
+    FACEBOOK_CALLBACK_URL: (0, getEvn_1.getEnv)("FACEBOOK_CALLBACK_URL", ""),
     FRONTEND_ORIGIN: (0, getEvn_1.getEnv)("FRONTEND_ORIGIN", "localhost"),
     FRONTEND_GOOGLE_CALLBACK_URL: (0, getEvn_1.getEnv)("FRONTEND_GOOGLE_CALLBACK_URL", ""),
 });
