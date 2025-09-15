@@ -1,9 +1,11 @@
 import exp from "constants";
 import { config } from "../config/appConfig";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { HTTPSTATUS } from "../config/httpConfig";
 import { registerSchema } from "../validation/authValidation";
+import { registerUserService } from "../service/auth.service";
+import passport from "passport";
 
 
 export const googleOAuthHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -34,3 +36,53 @@ export const registerUserController = asyncHandler(async (req: Request, res: Res
         data: body,
     });
 });
+
+
+export const loginUserController =asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        passport.authenticate("local",
+            (
+                err: Error | null,
+                user: Express.User | false,
+                info: { message: string } | undefined
+            ) => {
+                if (err) {
+                    return next(err);
+                }
+                
+                if (!user) {
+                    return res.status(HTTPSTATUS.UNAUTHORIZED).json({
+                        message: info?.message || "Invaild email or password"
+                    });
+                }
+
+                req.logIn(user, (err) => {
+                    if (err) {
+                        return next(err);
+                    }
+                    return res.status(HTTPSTATUS.OK).json({
+                        message: "Login Successful",
+                        user,
+                    });
+                })
+            }
+        ) (req, res, next);
+    }
+);
+
+export const logoutUserController = asyncHandler(
+    async (req: Request, res: Response) => {
+        req.logOut((err) => {
+            if (err) {
+                console.error("Logout error", err);
+                return res
+                .status(HTTPSTATUS.INTERNAL_SERVER_ERROR).jsonp({
+                    error: "Failed to Log Out"
+                });
+            }
+        });
+
+        req.session = null;
+        return res.status(HTTPSTATUS.OK).json({ message: "Log Out Successfully"})
+    }
+)

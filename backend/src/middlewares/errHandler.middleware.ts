@@ -1,6 +1,25 @@
-import { ErrorRequestHandler } from "express";
+import { ErrorRequestHandler, response, Response } from "express";
 import { HTTPSTATUS } from "../config/httpConfig";
 import { AppError } from "../utils/appError";
+import { z, ZodError } from "zod";
+import { error } from "console";
+import { ErrorCodeEnum } from "../enums/errCode";
+
+
+const formatZodError = (
+    err: z.ZodError,
+    res: Response,
+) => {
+    const errors = err?.issues?.map((error) => ({
+        field: error.path.join("."),
+        message: error.message,
+    }));
+    return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Vaildation failed",
+        err: errors,
+        errCode: ErrorCodeEnum.VALIDATION_ERROR,
+    });
+}
 
 export const errorHandler: ErrorRequestHandler = (
     err,
@@ -12,7 +31,11 @@ export const errorHandler: ErrorRequestHandler = (
         return res.status(HTTPSTATUS.BAD_REQUEST).json({
             message: "Invalid JSON format. Please check your request payload.",
         });
-    } 
+    }
+
+    if (err instanceof ZodError) {
+        return formatZodError(res, err);
+    }
 
     if (err instanceof AppError) {
         return res.status(err.statusCode).json({

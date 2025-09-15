@@ -7,6 +7,8 @@ import { Roles } from "../enums/role";
 import { NotFoundError, UnauthorizedError, BadRequestError } from "../utils/appError";
 import MemberModel from "../models/memberModel";
 import { compareValues } from "../utils/bcrypt";
+import { ProviderEnum } from "../enums/accProvider";
+import { string } from "zod";
 
 export const loginOrCreateAccountService = async (data: {
     provider: string;
@@ -145,7 +147,7 @@ export const loginOrCreateAccountService = async (data: {
 };
 
 // Email registration flow (no transactions in development)
-export const registerWithEmailService = async (data: {
+/* {export const registerWithEmailService = async (data: {
     name?: string;
     email: string;
     password: string;
@@ -205,10 +207,10 @@ export const registerWithEmailService = async (data: {
     await user.save();
 
     return { user };
-};
+}; }*/
 
 // Email login flow
-export const loginWithEmailService = async (data: {
+/* {export const loginWithEmailService = async (data: {
     email: string;
     password: string;
 }) => {
@@ -231,14 +233,98 @@ export const loginWithEmailService = async (data: {
     const ok = await compareValues(password, user.password);
     if (!ok) throw new UnauthorizedError("Invalid credentials");
     return { user };
-};
+}; } */
 
 export const registerUserService = async (body: {
     email: string,
     name: string,
     password: string,
 }) => {
+    session.startTransaction();
     const { email, name, password } = body;
     const session = await mongoose.startSession();
-    try
+    try{
+        const existingUser = await UserModel.findOne({ email }).session(session);
+        if (existingUser) {
+            throw new BadRequestError("Existing Account");
+        }
+
+        const user = new UserModel({
+            email,
+            name,
+            password,
+        });
+        await user.save({ session });
+
+        const account = new AccountModel({
+            userId: user._id,
+            provider: ProviderEnum.EMAIL,
+            providerId: email,
+        });
+        await account.save({ session });
+
+        const workspace = new WorkspaceModel({
+            name: `My Workspace`,
+            description: `Workspace created for ${user.name}`,
+            owner: user._id,
+        });
+        await workspace.save({ session });
+
+        const ownerRole = await RoleModel.findOne({
+            name: Roles.OFFICER,
+        }).session(session);
+
+        if (!ownerRole) {
+            throw new NotFoundError("Officer role not found")
+        }
+
+        const member = new MemberModel({
+            userId: user._id,
+            workspaceId: workspace._id,
+            role: ownerRole._id,
+            joinedAt: new Date(),
+        })
+        await member.save({ session });
+
+        user.currentWorkspace = workspace._id as mongoose.Types.ObjectId;
+        await user.save({ session });
+
+        await session.commitTransaction;
+        session.endSession();
+        console.log("End Session ...");
+
+        return { userId: user._id, workspace: workspace._id,  };
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+
+        throw error;
+    }
+};
+
+export const verifyUserService = async ({
+    email,
+    password,
+    provider = ProviderEnum.EMAIL,
+}: {
+    email: string,
+    password: string,
+    provider?: string,
+    }) => {
+        const account = await AccountModel.findOne({ provider, providerId: email });
+        if (!account) {
+            throw new NotFoundError("Invaild email or password");
+        }
+
+        const user = await UserModel.findById(account.userId);
+        if(!user) {
+            throw new NotFoundError("User not found for the given account");
+        }
+
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+            throw new UnauthorizedError("Invalid email or password");
+        }
+
+        return user.omitPassword();
 };

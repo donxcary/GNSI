@@ -1,12 +1,19 @@
 import { config } from "../config/appConfig";
 import { Router } from "express";
 import passport from "passport";
-import { googleOAuthHandler } from "../controllers/authController";
+import { googleOAuthHandler, loginUserController, logoutUserController, registerUserController } from "../controllers/authController";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
-import { registerWithEmailService, loginWithEmailService } from "../service/auth.service";
+import { register } from "module";
+// import { registerWithEmailService, loginWithEmailService } from "../service/auth.service";
 
 const failedUrl = `${config.FRONTEND_GOOGLE_CALLBACK_URL}?status=failed`;
+
 const authRoutes = Router();
+
+authRoutes.post("/register", registerUserController);
+authRoutes.post("/login", loginUserController);
+authRoutes.post("/logout", logoutUserController);
+
 
 authRoutes.get(
     "/google",
@@ -48,21 +55,22 @@ if (config.FACEBOOK_CLIENT_ID && config.FACEBOOK_CLIENT_SECRET && config.FACEBOO
 export default authRoutes;
 
 // Email registration
-authRoutes.post(
+/* {authRoutes.post(
     "/email/register",
     asyncHandler(async (req, res) => {
         const { name, email, password } = req.body;
         const { user } = await registerWithEmailService({ name, email, password });
         res.status(201).json({ status: "success", user: user.omitPassword() });
     })
-);
+); } */
 
 // Email login
-authRoutes.post(
+/* {authRoutes.post(
     "/email/login",
     asyncHandler(async (req, res) => {
         const { email, password } = req.body;
         const { user } = await loginWithEmailService({ email, password });
         res.status(200).json({ status: "success", user: user.omitPassword() });
     })
-);
+); } */
+

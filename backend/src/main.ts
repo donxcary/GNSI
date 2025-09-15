@@ -10,6 +10,9 @@ import { asyncHandler } from "./middlewares/asyncHandler.middleware";
 import "./config/passportConfig";
 import passport from "passport";
 import authRoutes from "./routes/authRoute";
+import userRoutes from "./routes/userRoute";
+import isAuthenticated from "./middlewares/isAuth.middleware";
+import workspaceRoutes from "./routes/workspaceRoute";
 
 
 const path = require("path");
@@ -55,6 +58,10 @@ app.get(`/privacy`, (req: Request, res: Response) => {
 });
 
 app.use(`${BASE_PATH}/auth`, authRoutes);
+app.use(`${BASE_PATH}/user`, isAuthenticated, userRoutes);
+app.use(`${BASE_PATH}/workspace`, isAuthenticated, workspaceRoutes);
+
+
 
 // Global Error Handler
 app.use(errorHandler);
