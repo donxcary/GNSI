@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { createWorkspaceSchema, workspaceIdSchema } from '../validation/workspaceValidation';
-import { createWorkspaceService, getWorkspaceByIdService, getWorkspaceMembersService, userAllWorkspacesService } from '../service/workspace.service';
+import { changeMemberRoleSchema, createWorkspaceSchema, updateWorkspaceSchema, workspaceIdSchema } from '../validation/workspaceValidation';
+import { changeMemberRoleService, createWorkspaceService, deleteWorkspaceService, getWorkspaceByIdService, getWorkspaceMembersService, updateWorkspaceService, userAllWorkspacesService, workspaceAnalyticsService } from '../service/workspace.service';
 import { asyncHandler } from '../middlewares/asyncHandler.middleware';
 import { HTTPSTATUS } from '../config/httpConfig';
 import exp from 'constants';
@@ -12,7 +12,7 @@ export const createWorkspaceController = asyncHandler(async (req: Request, res: 
     const body = createWorkspaceSchema.parse({ ...req.body });
     const userId = req.user?.id;
 
-    const { workspace } = await createWorkspaceService(userId, body;
+    const { workspace } = await createWorkspaceService(userId, body);
         return res.status(HTTPSTATUS.CREATED).json({
             message: "Workspace successfully created",
             workspace,
@@ -66,10 +66,52 @@ export const workspaceAnalyticsController = asyncHandler (async (req: Request, r
     // const { role } = await getMemberRoleService(userId, workspaceId);
     // roleGuard(role, [Permissions.VIEW_ONLY])
 
-    const {} = await workspaceAnalyticsService(workspaceId);
- \
+    const { analytics } = await workspaceAnalyticsService(workspaceId);
+
     return res.status(HTTPSTATUS.OK).json({
-        members,
-        roles,
+        message: "Workspace Analytics fetched successfully",
+        analytics,
     });
-})
+});
+
+export const changeMembersRoleController = asyncHandler (async (req: Request, res: Response) => {
+    const workspaceId = workspaceIdSchema.parse(req.params.id);
+    const userId = req.user?._id;
+    const { role } = await getMemberRoleService(userId, workspaceId);
+    roleGuard(role, [Permissions.CHANGE_MEMBER_ROLE]);
+
+    const { roleId, memberId } = changeMemberRoleSchema.parse(req.body);
+    await changeMemberRoleService(workspaceId, roleId, memberId);
+
+    return res.status(HTTPSTATUS.OK).json({
+        message: "Member role changed successfully",
+        member,
+    });
+});
+
+export const updateWorkspaceController = asyncHandler(async (req: Request, res: Response) => {
+    const workspaceId = workspaceIdSchema.parse(req.params.id);
+    const userId = req.user?._id;
+    const { role } = await getMemberRoleService(userId, workspaceId);
+    roleGuard(role, [Permissions.EDIT_WORKSPACE]);
+    const { name, description } = updateWorkspaceSchema.parse({ ...req.body });
+
+    const { workspace } = await updateWorkspaceService(workspaceId, { name, description });
+    return res.status(HTTPSTATUS.OK).json({
+        message: "Workspace successfully updated",
+        workspace,
+    });
+});
+
+export const deleteWorkspaceController = asyncHandler(async (req: Request, res: Response) => {
+    const workspaceId = workspaceIdSchema.parse(req.params.id);
+    const userId = req.user?._id;
+    const { role } = await getMemberRoleService(userId, workspaceId);
+    roleGuard(role, [Permissions.DELETE_WORKSPACE]);
+
+    const { currentWorkspace } = await deleteWorkspaceService(workspaceId, userId);
+    return res.status(HTTPSTATUS.OK).json({
+        message: "Workspace successfully deleted",
+        workspace: currentWorkspace,
+    });
+});

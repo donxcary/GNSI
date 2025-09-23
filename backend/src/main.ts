@@ -13,6 +13,8 @@ import authRoutes from "./routes/authRoute";
 import userRoutes from "./routes/userRoute";
 import isAuthenticated from "./middlewares/isAuth.middleware";
 import workspaceRoutes from "./routes/workspaceRoute";
+import memberRoute from "./routes/memberRoute";
+import projectRoutes from "./routes/projectRoute";
 
 
 const path = require("path");
@@ -60,8 +62,21 @@ app.get(`/privacy`, (req: Request, res: Response) => {
 app.use(`${BASE_PATH}/auth`, authRoutes);
 app.use(`${BASE_PATH}/user`, isAuthenticated, userRoutes);
 app.use(`${BASE_PATH}/workspace`, isAuthenticated, workspaceRoutes);
+app.use(`${BASE_PATH}/member`, isAuthenticated, memberRoute);
+app.use(`${BASE_PATH}/project`, isAuthenticated, projectRoutes);
 
 
+
+// Health check endpoint
+app.get(
+    "/health",
+    asyncHandler(async (req: Request, res: Response) => {
+        res.status(HTTPSTATUS.OK).json({
+            status: "success",
+            message: "API is healthy",
+        });
+    })
+);
 
 // Global Error Handler
 app.use(errorHandler);
