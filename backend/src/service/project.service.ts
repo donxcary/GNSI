@@ -1,6 +1,8 @@
 import e from "express";
 import ProjectModel from "../models/projectModel";
 import { NotFoundError } from "../utils/appError";
+import TaskModel from "../models/taskModel";
+import mongoose from "mongoose";
 
 
 export const createProjectService = async (userId: string, workspaceId: string, body: {
@@ -63,6 +65,31 @@ export const getProjectAnalyticsService = async (workspaceId: string, projectId:
 
     if (!project || project.workspace.toString() !== workspaceId.toString())
         throw new NotFoundError("Project not found");
+
+    const currentDate = new Date();
+    const currentDay = currentDate.getDate();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    // Using mongoose aggregation to get task analytics
+    const taskAnalytics = await TaskModel.aggregate([
+        { $match: { project: new mongoose.Types.ObjectId(projectId) } },
+        {
+            $unwind: "$tasks"
+        },
+        {
+            $group: {
+                _id: {
+                    day: { $dayOfMonth: "$tasks.createdAt" },
+                    month: { $month: "$tasks.createdAt" },
+                    year: { $year: "$tasks.createdAt" }
+                },
+                totalTasks: { $count: "count" },
+                completedTasks: { $sum: { $cond: ["$tasks.completed", 1, 0] } },
+                overdueTasks: { $sum: { $cond: [{ $lt: ["$tasks.dueDate", currentDate] }, 1, 0] } },
+            },
+        },
+    ]);
 
     if (!analytics)
         throw new NotFoundError("Project analytics not found");

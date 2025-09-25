@@ -1,6 +1,6 @@
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
 import e, { Request, Response } from "express";
-import { createProjectService, getAllProjectsService, getProjectByIdService } from "../service/project.service";
+import { createProjectService, getAllProjectsService, getProjectAnalyticsService, getProjectByIdService } from "../service/project.service";
 import { createProjectControllerSchema, projectIdSchema } from "../validation/projectValidations";
 import { workspaceIdSchema } from "../validation/workspaceValidation";
 import { getMemberRoleService } from "../service/member.service";
