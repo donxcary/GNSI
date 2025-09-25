@@ -35,6 +35,12 @@ projectRoutes.get(
 );
 
 projectRoutes.get(
+    "/workspace/:workspaceId/:id/analytics",
+    authenticateToken,
+    projectController.getProjectAnalytics.bind(projectController)
+);
+
+projectRoutes.get(
     "/workspace/:workspaceId/all",
     authenticateToken,
     projectController.getAllProjects.bind(projectController)

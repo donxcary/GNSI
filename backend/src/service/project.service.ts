@@ -1,3 +1,4 @@
+import e from "express";
 import ProjectModel from "../models/projectModel";
 import { NotFoundError } from "../utils/appError";
 
@@ -43,4 +44,27 @@ export const getProjectByIdService = async (workspaceId: string, projectId: stri
         .select("_id name description color emoji createdBy");
     if (!project) throw new NotFoundError("Project not found");
     return { project };
+};
+
+export const getProjectAnalyticsService = async (workspaceId: string, projectId: string) => {
+    // Implementation for fetching project analytics
+    const analytics = await ProjectModel.aggregate([
+        { $match: { workspace: workspaceId, _id: projectId } },
+        {
+            $group: {
+                _id: "$_id",
+                totalTasks: { $sum: { $size: "$tasks" } },
+                completedTasks: { $sum: { $cond: ["$tasks.completed", 1, 0] } },
+            },
+        },
+    ]);
+
+    const project = await ProjectModel.findOne({ _id: projectId });
+
+    if (!project || project.workspace.toString() !== workspaceId.toString())
+        throw new NotFoundError("Project not found");
+
+    if (!analytics)
+        throw new NotFoundError("Project analytics not found");
+    return { analytics, project };
 };

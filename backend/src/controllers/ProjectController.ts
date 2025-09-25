@@ -113,11 +113,28 @@ export const getProjectByIdController = asyncHandler(async (req: Request, res: R
     });
 });
 
+export const getProjectAnalyticsController = asyncHandler(async (req: Request, res: Response) => {
+    const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
+    const projectId = projectIdSchema.parse(req.params.id);
+    const userId = req.user?.id;
+    const { role } = await getMemberRoleService(userId, workspaceId);
+    // Role guard here
+    roleGuard(role, [Permissions.VIEW_ONLY]);
+
+    const { analytics } = await getProjectAnalyticsService(workspaceId, projectId);
+
+    return res.status(HTTPSTATUS.OK).json({
+        message: "Project analytics fetched successfully",
+        analytics,
+    });
+});
+
 export const projectController = {
     createProject: createProjectController,
     updateProject: updateProjectController,
     deleteProject: deleteProjectController,
     getProjectById: getProjectByIdController,
-    getAllProjects: getAllProjectsController
+    getAllProjects: getAllProjectsController,
+    getProjectAnalytics: getProjectAnalyticsController
 };
     
