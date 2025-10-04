@@ -3,6 +3,7 @@ import ProjectModel from "../models/projectModel";
 import { NotFoundError } from "../utils/appError";
 import TaskModel from "../models/taskModel";
 import mongoose from "mongoose";
+import { TaskStatusEnum } from "../enums/task";
 
 
 export const createProjectService = async (userId: string, workspaceId: string, body: {
@@ -49,18 +50,6 @@ export const getProjectByIdService = async (workspaceId: string, projectId: stri
 };
 
 export const getProjectAnalyticsService = async (workspaceId: string, projectId: string) => {
-    // Implementation for fetching project analytics
-    const analytics = await ProjectModel.aggregate([
-        { $match: { workspace: workspaceId, _id: projectId } },
-        {
-            $group: {
-                _id: "$_id",
-                totalTasks: { $sum: { $size: "$tasks" } },
-                completedTasks: { $sum: { $cond: ["$tasks.completed", 1, 0] } },
-            },
-        },
-    ]);
-
     const project = await ProjectModel.findOne({ _id: projectId });
 
     if (!project || project.workspace.toString() !== workspaceId.toString())
@@ -73,25 +62,79 @@ export const getProjectAnalyticsService = async (workspaceId: string, projectId:
 
     // Using mongoose aggregation to get task analytics
     const taskAnalytics = await TaskModel.aggregate([
-        { $match: { project: new mongoose.Types.ObjectId(projectId) } },
-        {
-            $unwind: "$tasks"
-        },
+        { $match: { project: new mongoose.Types.ObjectId(projectId), } },
         {
             $group: {
-                _id: {
+                _id: [{
                     day: { $dayOfMonth: "$tasks.createdAt" },
                     month: { $month: "$tasks.createdAt" },
                     year: { $year: "$tasks.createdAt" }
+                }],
+                totalTasks: [{ $count: "count" }],
+                overdueTasks: [{
+                    $match: {
+                        dueDate: { $lt: currentDate },
+                        status: { $ne: TaskStatusEnum.DONE },
+                    },
                 },
-                totalTasks: { $count: "count" },
-                completedTasks: { $sum: { $cond: ["$tasks.completed", 1, 0] } },
-                overdueTasks: { $sum: { $cond: [{ $lt: ["$tasks.dueDate", currentDate] }, 1, 0] } },
+                { $count: "count" },
+            ],
+                completedTasks: [{ $match: { status: TaskStatusEnum.DONE } }, { $count: "count" }],
+
             },
         },
     ]);
+
+    const _analytics = taskAnalytics[0];
+
+    // Implementation for fetching project analytics
+    const analytics = {
+        totalTasks: _analytics.totalTasks[0]?.count || 0,
+        completedTasks: _analytics.completedTasks[0]?.count || 0,
+        overdueTasks: _analytics.overdueTasks[0]?.count || 0,
+    };
 
     if (!analytics)
         throw new NotFoundError("Project analytics not found");
     return { analytics, project };
 };
+
+
+export const updateProjectService = async (userId: string, workspaceId: string, projectId: string, body: {
+    emoji?: string;
+    color?: string;
+    name?: string;
+    description?: string;
+}) => {
+    const { emoji, color, name, description } = body;
+    // Implementation for updating a project
+    const project = await ProjectModel.findOneAndUpdate(
+        { _id: projectId, workspace: workspaceId, user: userId },
+        { emoji, color, name, description },
+        { new: true }
+    );
+
+    if (!project) throw new NotFoundError("Project not found");
+
+    if (emoji) project.emoji = emoji;
+    if (color) project.color = color;
+    if (name) project.name = name;
+    if (description) project.description = description;
+
+    await project.save();
+
+    return { project };
+};
+
+export const deleteProjectService = async (workspaceId: string, projectId: string) => {
+    const project = await ProjectModel.findOneAndDelete(
+        { _id: projectId, workspace: workspaceId }
+    );
+
+    if (!project) throw new NotFoundError("Project not found");
+
+    await project.deleteOne();
+    await TaskModel.deleteMany({ project: project._id });
+    return { project };
+};
+ 

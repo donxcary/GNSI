@@ -1,7 +1,7 @@
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
 import e, { Request, Response } from "express";
-import { createProjectService, getAllProjectsService, getProjectAnalyticsService, getProjectByIdService } from "../service/project.service";
-import { createProjectControllerSchema, projectIdSchema } from "../validation/projectValidations";
+import { createProjectService, deleteProjectService, getAllProjectsService, getProjectAnalyticsService, getProjectByIdService, updateProjectService } from "../service/project.service";
+import { createProjectControllerSchema, projectIdSchema, updateProjectSchema } from "../validation/projectValidations";
 import { workspaceIdSchema } from "../validation/workspaceValidation";
 import { getMemberRoleService } from "../service/member.service";
 import { roleGuard } from "../utils/roleGuard";
@@ -68,13 +68,13 @@ export const getAllProjectsController = asyncHandler(async (req: Request, res: R
 });
 
 export const updateProjectController = asyncHandler(async (req: Request, res: Response) => {
-    const body = updateProjectControllerSchema.parse(req.body);
+    const body = updateProjectSchema.parse(req.body);
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.id);
     const userId = req.user?.id;
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
-    roleGuard(role, [Permissions.UPDATE_PROJECT]);
+    roleGuard(role, [Permissions.EDIT_PROJECT]);
 
     const { project } = await updateProjectService(userId, workspaceId, projectId, body);
 
@@ -92,9 +92,11 @@ export const deleteProjectController = asyncHandler(async (req: Request, res: Re
     // Role guard here
     roleGuard(role, [Permissions.DELETE_PROJECT]);
 
-    await deleteProjectService(userId, workspaceId, projectId);
+    await deleteProjectService(workspaceId, projectId);
 
-    return res.status(HTTPSTATUS.NO_CONTENT).json();
+    return res.status(HTTPSTATUS.OK).json({
+        message: "Project deleted successfully",
+    });
 });
 
 export const getProjectByIdController = asyncHandler(async (req: Request, res: Response) => {
