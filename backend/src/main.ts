@@ -15,6 +15,7 @@ import isAuthenticated from "./middlewares/isAuth.middleware";
 import workspaceRoutes from "./routes/workspaceRoute";
 import memberRoute from "./routes/memberRoute";
 import projectRoutes from "./routes/projectRoute";
+import taskRouter from "./routes/taskRoute";
 
 
 const path = require("path");
@@ -64,6 +65,7 @@ app.use(`${BASE_PATH}/user`, isAuthenticated, userRoutes);
 app.use(`${BASE_PATH}/workspace`, isAuthenticated, workspaceRoutes);
 app.use(`${BASE_PATH}/member`, isAuthenticated, memberRoute);
 app.use(`${BASE_PATH}/project`, isAuthenticated, projectRoutes);
+app.use(`${BASE_PATH}/task`, isAuthenticated, taskRouter);
 
 
 
