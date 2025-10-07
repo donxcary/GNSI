@@ -8,6 +8,7 @@ import { Permissions } from "../enums/role";
 import { getMemberRoleService } from "../service/member.service";
 import { createTaskService, deleteTaskService, getAllTasksService, getTaskByIdService, updateTaskService } from "../service/task.service";
 import { HTTPSTATUS } from "../config/httpConfig";
+import { UnauthorizedError } from "../utils/appError";
 // Removed unused imports
 
 
@@ -18,6 +19,7 @@ export const createTaskController = asyncHandler(async (req: Request, res: Respo
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.projectId);
     const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.CREATE_TASK]);
@@ -29,13 +31,13 @@ export const createTaskController = asyncHandler(async (req: Request, res: Respo
         task,
     });
 });
-
 export const updateTaskController = asyncHandler(async (req: Request, res: Response) => {
     const body = updateTaskSchema.parse(req.body);
     const taskId = taskIdSchema.parse(req.params.taskId);
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.projectId);
     const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.EDIT_TASK]);
@@ -71,6 +73,7 @@ export const getAllTasksController = asyncHandler(async (req: Request, res: Resp
         pageNumber: parseInt(req.query.pageNumber as string) || 1,
     };
 
+    if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.VIEW_ONLY]);
@@ -85,6 +88,7 @@ export const getTaskByIdController = asyncHandler(async (req: Request, res: Resp
     const projectId = projectIdSchema.parse(req.params.projectId);
     const userId = req.user?.id;
 
+    if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.VIEW_ONLY]);
@@ -102,6 +106,7 @@ export const deleteTaskController = asyncHandler(async (req: Request, res: Respo
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const userId = req.user?.id;
 
+    if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.DELETE_TASK]);

@@ -8,12 +8,14 @@ import { roleGuard } from "../utils/roleGuard";
 import { Permissions } from "../enums/role";
 import { HTTPSTATUS } from "../config/httpConfig";
 // Removed unused import 'constants'
+import { buildPagination } from "../utils/pagination";
+import { UnauthorizedError } from "../utils/appError";
 
 
 export const createProjectController = asyncHandler(async (req: Request, res: Response) => {
     const body = createProjectControllerSchema.parse(req.body);
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
-    const userId = req.user?.id;
+    const userId = req.user?.id; if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.CREATE_PROJECT]);
@@ -28,15 +30,17 @@ export const createProjectController = asyncHandler(async (req: Request, res: Re
 
 export const getAllProjectsController = asyncHandler(async (req: Request, res: Response) => {
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
-    const userId = req.user?.id;
+    const userId = req.user?.id; if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.VIEW_ONLY]);
     
-    // create pageSize and pageNumber validation later
-    const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : 10;
-    const pageNumber = req.query.pageNumber ? parseInt(req.query.pageNumber as string, 10) : 1;
-    const { projects, totalCount, skip, totalPages } = await getAllProjectsService(workspaceId, pageSize, pageNumber);
+    const { pageSize, pageNumber, skip, limit } = buildPagination({
+        pageNumber: req.query.pageNumber as string | undefined,
+        pageSize: req.query.pageSize as string | undefined,
+        maxPageSize: 50,
+    });
+    const { projects, totalCount, totalPages } = await getAllProjectsService(workspaceId, limit, pageNumber);
 
     return res.status(HTTPSTATUS.OK).json({
         message: "Projects fetched successfully",
@@ -53,7 +57,7 @@ export const getAllProjectsController = asyncHandler(async (req: Request, res: R
           //  prevPage: pageNumber > 1 ? pageNumber - 1 : null,
           //  isFirstPage: pageNumber === 1,
           //  isLastPage: pageNumber === totalPages,
-            limit: pageSize,
+            limit,
           //  offset: skip,
           //  total: totalCount,
           //  pages: totalPages,
@@ -71,7 +75,7 @@ export const updateProjectController = asyncHandler(async (req: Request, res: Re
     const body = updateProjectSchema.parse(req.body);
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.id);
-    const userId = req.user?.id;
+    const userId = req.user?.id; if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.EDIT_PROJECT]);
@@ -87,7 +91,7 @@ export const updateProjectController = asyncHandler(async (req: Request, res: Re
 export const deleteProjectController = asyncHandler(async (req: Request, res: Response) => {
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.id);
-    const userId = req.user?.id;
+    const userId = req.user?.id; if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.DELETE_PROJECT]);
@@ -102,7 +106,7 @@ export const deleteProjectController = asyncHandler(async (req: Request, res: Re
 export const getProjectByIdController = asyncHandler(async (req: Request, res: Response) => {
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.id);
-    const userId = req.user?.id;
+    const userId = req.user?.id; if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.VIEW_ONLY]);
@@ -118,7 +122,7 @@ export const getProjectByIdController = asyncHandler(async (req: Request, res: R
 export const getProjectAnalyticsController = asyncHandler(async (req: Request, res: Response) => {
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.id);
-    const userId = req.user?.id;
+    const userId = req.user?.id; if (!userId) throw new UnauthorizedError("Not authenticated");
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.VIEW_ONLY]);

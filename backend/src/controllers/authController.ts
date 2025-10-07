@@ -5,6 +5,7 @@ import { HTTPSTATUS } from "../config/httpConfig";
 import { registerSchema } from "../validation/authValidation";
 import { registerUserService } from "../service/auth.service";
 import passport from "passport";
+import { sendSuccess } from "../utils/response";
 
 
 export const googleOAuthHandler = asyncHandler(async (req: Request, res: Response) => {
@@ -28,8 +29,9 @@ export const googleOAuthHandler = asyncHandler(async (req: Request, res: Respons
 export const registerUserController = asyncHandler(async (req: Request, res: Response) => {
     const body = registerSchema.parse(req.body);
     await registerUserService(body);
-    return res.status(HTTPSTATUS.CREATED).json({
-        status: "success",
+    return sendSuccess({
+        res,
+        status: HTTPSTATUS.CREATED,
         message: "User registration successful",
         data: body,
     });

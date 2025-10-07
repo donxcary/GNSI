@@ -6,9 +6,7 @@ import RoleModel from "../models/roleModel";
 import { Roles } from "../enums/role";
 import { NotFoundError, UnauthorizedError, BadRequestError } from "../utils/appError";
 import MemberModel from "../models/memberModel";
-import { compareValues } from "../utils/bcrypt";
 import { ProviderEnum } from "../enums/accProvider";
-import { string } from "zod";
 
 export const loginOrCreateAccountService = async (data: {
     provider: string;
@@ -18,131 +16,85 @@ export const loginOrCreateAccountService = async (data: {
     email?: string;
 }) => {
     const { providerId, provider, displayName, email, picture } = data;
-
-    // Disable transactions in local development (standalone MongoDB)
     const useTransactions = process.env.NODE_ENV !== "development";
-    let session: mongoose.ClientSession | null = null;
-    if (useTransactions) {
-        session = await mongoose.startSession();
-    }
-
+    const session = useTransactions ? await mongoose.startSession() : null;
     try {
         if (session) session.startTransaction();
-        console.log("Session Start...");
-        // Use session only when available
-        const s = session || undefined;
 
-        // 1) First, try to find an existing account by provider + providerId
-        let existingAccountQuery = AccountModel.findOne({ provider: provider as any, providerId });
-        if (s) existingAccountQuery = existingAccountQuery.session(s);
-        const existingAccount = await existingAccountQuery;
-
+        // 1. Existing account?
+        const existingAccountQuery = AccountModel.findOne({ provider: provider as any, providerId });
+        const existingAccount = session ? await existingAccountQuery.session(session) : await existingAccountQuery;
         if (existingAccount) {
-            // Provider and providerId match — load the user and return
-            let userByAccountQuery = UserModel.findById(existingAccount.userId);
-            if (s) userByAccountQuery = userByAccountQuery.session(s);
-            const user = await userByAccountQuery;
+            const userQ = UserModel.findById(existingAccount.userId);
+            const user = session ? await userQ.session(session) : await userQ;
             if (!user) throw new NotFoundError("User for account not found");
             if (session) {
                 await session.commitTransaction();
                 session.endSession();
             }
-            console.log("Session End...");
             return { user };
         }
 
-        // 2) No matching provider account. If email maps to an existing user, block cross-provider login.
-        let userQuery = email ? UserModel.findOne({ email }) : null;
-        if (s && userQuery) userQuery = userQuery.session(s) as any;
-        let user = userQuery ? await userQuery : null;
-        if (user) {
-            // Find user providers to show a helpful error
-            let providersQuery = AccountModel.find({ userId: user._id }).select("provider");
-            if (s) providersQuery = providersQuery.session(s) as any;
-            const accounts = await providersQuery;
-            const providers = accounts.map((a) => a.provider).join(", ");
-            throw new UnauthorizedError(
-                providers
-                    ? `This email is registered with: ${providers}. Please sign in using the same provider.`
-                    : `This email is already registered. Please sign in using the original provider.`
-            );
-        }
-
-        if (!user) {
-            user = new UserModel({
-                email,
-                name: displayName,
-                profilePicture: picture || null,
-            });
-
-            if (s) {
-                await user.save({ session: s });
-            } else {
-                await user.save();
-            }
-            const account = new AccountModel({
-                userId: user._id,
-                provider: provider as any,
-                providerId: providerId,
-            });
-
-            if (s) {
-                await account.save({ session: s });
-            } else {
-                await account.save();
-            }
-            const workspace = new WorkspaceModel({
-                name: `My Workspace`,
-                description: `Workspace created for ${user.name}`,
-                owner: user._id,
-            });
-
-            if (s) {
-                await workspace.save({ session: s });
-            } else {
-                await workspace.save();
-            }
-            let ownerRoleQuery = RoleModel.findOne({
-                name: Roles.OFFICER,
-            });
-            if (s) ownerRoleQuery = ownerRoleQuery.session(s);
-            const ownerRole = await ownerRoleQuery;
-
-            if (!ownerRole) {
-                throw new NotFoundError("Owner's Role Not Found");
-            }
-            const member = new MemberModel({
-                userId: user._id,
-                workspaceId: workspace._id,
-                role: ownerRole._id,
-                joinedAt: new Date(),
-            });
-            if (s) {
-                await member.save({ session: s });
-            } else {
-                await member.save();
-            }
-
-            user.currentWorkspace = workspace._id as mongoose.Types.ObjectId;
-            if (s) {
-                await user.save({ session: s });
-            } else {
-                await user.save();
+        // 2. Email already tied to another provider? Block mismatched login.
+        if (email) {
+            const existingUserQ = UserModel.findOne({ email });
+            const existingUser = session ? await existingUserQ.session(session) : await existingUserQ;
+            if (existingUser) {
+            const accountsQ = AccountModel.find({ userId: existingUser._id }).select("provider");
+            const accounts = session ? await accountsQ.session(session) : await accountsQ;
+                const providers = accounts.map(a => a.provider).join(", ");
+                throw new UnauthorizedError(
+                    providers
+                        ? `This email is registered with: ${providers}. Please use the same provider.`
+                        : `This email is already registered.`
+                );
             }
         }
+
+        // 3. Create new user + account + workspace + membership
+            const user = await new UserModel({
+            email,
+            name: displayName,
+            profilePicture: picture || null,
+            }).save({ session: session || undefined });
+
+            await new AccountModel({
+            userId: user._id,
+            provider: provider as any,
+            providerId,
+            }).save({ session: session || undefined });
+
+            const workspace = await new WorkspaceModel({
+            name: `My Workspace`,
+            description: `Workspace created for ${user.name}`,
+            owner: user._id,
+            }).save({ session: session || undefined });
+
+        const ownerRoleQ = RoleModel.findOne({ name: Roles.OFFICER });
+        const ownerRole = session ? await ownerRoleQ.session(session) : await ownerRoleQ;
+        if (!ownerRole) throw new NotFoundError("Officer role not found");
+
+        await new MemberModel({
+            userId: user._id,
+            workspaceId: workspace._id,
+            role: ownerRole._id,
+            joinedAt: new Date(),
+        }).save({ session: session || undefined });
+
+        user.currentWorkspace = workspace._id as mongoose.Types.ObjectId;
+        await user.save({ session: session || undefined });
+
         if (session) {
             await session.commitTransaction();
             session.endSession();
         }
-        console.log("Session End...");
-    return { user };
-    } catch (error) {
-        console.error("Error occurred during login or account creation:", error);
+        return { user };
+    } catch (err) {
         if (session) {
             await session.abortTransaction();
             session.endSession();
         }
-        throw error;
+        throw err;
     }
 };
 
@@ -235,69 +187,46 @@ export const loginOrCreateAccountService = async (data: {
     return { user };
 }; } */
 
-export const registerUserService = async (body: {
-    email: string,
-    name: string,
-    password: string,
-}) => {
-    session.startTransaction();
-    const { email, name, password } = body;
+export const registerUserService = async (body: { email: string; name: string; password: string }) => {
     const session = await mongoose.startSession();
-    try{
+    session.startTransaction();
+    try {
+        const { email, name, password } = body;
         const existingUser = await UserModel.findOne({ email }).session(session);
-        if (existingUser) {
-            throw new BadRequestError("Existing Account");
-        }
+        if (existingUser) throw new BadRequestError("Existing Account");
 
-        const user = new UserModel({
-            email,
-            name,
-            password,
-        });
-        await user.save({ session });
-
-        const account = new AccountModel({
+        const user = await new UserModel({ email, name, password }).save({ session });
+        await new AccountModel({
             userId: user._id,
             provider: ProviderEnum.EMAIL,
             providerId: email,
-        });
-        await account.save({ session });
+        }).save({ session });
 
-        const workspace = new WorkspaceModel({
+        const workspace = await new WorkspaceModel({
             name: `My Workspace`,
             description: `Workspace created for ${user.name}`,
             owner: user._id,
-        });
-        await workspace.save({ session });
+        }).save({ session });
 
-        const ownerRole = await RoleModel.findOne({
-            name: Roles.OFFICER,
-        }).session(session);
+        const ownerRole = await RoleModel.findOne({ name: Roles.OFFICER }).session(session);
+        if (!ownerRole) throw new NotFoundError("Officer role not found");
 
-        if (!ownerRole) {
-            throw new NotFoundError("Officer role not found")
-        }
-
-        const member = new MemberModel({
+        await new MemberModel({
             userId: user._id,
             workspaceId: workspace._id,
             role: ownerRole._id,
             joinedAt: new Date(),
-        })
-        await member.save({ session });
+        }).save({ session });
 
         user.currentWorkspace = workspace._id as mongoose.Types.ObjectId;
         await user.save({ session });
 
-        await session.commitTransaction;
+        await session.commitTransaction();
         session.endSession();
-        console.log("End Session ...");
-
-        return { userId: user._id, workspace: workspace._id,  };
+        return { userId: user._id, workspace: workspace._id };
     } catch (error) {
         await session.abortTransaction();
         session.endSession();
-
         throw error;
     }
 };
@@ -307,24 +236,18 @@ export const verifyUserService = async ({
     password,
     provider = ProviderEnum.EMAIL,
 }: {
-    email: string,
-    password: string,
-    provider?: string,
-    }) => {
-        const account = await AccountModel.findOne({ provider, providerId: email });
-        if (!account) {
-            throw new NotFoundError("Invaild email or password");
-        }
+    email: string;
+    password: string;
+    provider?: string;
+}) => {
+    const account = await AccountModel.findOne({ provider, providerId: email });
+    if (!account) throw new NotFoundError("Invalid email or password");
 
-        const user = await UserModel.findById(account.userId);
-        if(!user) {
-            throw new NotFoundError("User not found for the given account");
-        }
+    const user = await UserModel.findById(account.userId).select("+password");
+    if (!user) throw new NotFoundError("User not found for the given account");
 
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            throw new UnauthorizedError("Invalid email or password");
-        }
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) throw new UnauthorizedError("Invalid email or password");
 
-        return user.omitPassword();
+    return user.omitPassword();
 };
