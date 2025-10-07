@@ -1,4 +1,3 @@
-import exp from "constants";
 import { config } from "../config/appConfig";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
 import { NextFunction, Request, Response } from "express";
@@ -27,8 +26,7 @@ export const googleOAuthHandler = asyncHandler(async (req: Request, res: Respons
 
 
 export const registerUserController = asyncHandler(async (req: Request, res: Response) => {
-    // User is authenticated and available in req.user
-    const body = registerSchema.parse({ ... req.body});
+    const body = registerSchema.parse(req.body);
     await registerUserService(body);
     return res.status(HTTPSTATUS.CREATED).json({
         status: "success",
@@ -38,51 +36,39 @@ export const registerUserController = asyncHandler(async (req: Request, res: Res
 });
 
 
-export const loginUserController =asyncHandler(
+export const loginUserController = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
-        passport.authenticate("local",
+        passport.authenticate(
+            "local",
             (
                 err: Error | null,
                 user: Express.User | false,
                 info: { message: string } | undefined
             ) => {
-                if (err) {
-                    return next(err);
-                }
-                
+                if (err) return next(err);
                 if (!user) {
-                    return res.status(HTTPSTATUS.UNAUTHORIZED).json({
-                        message: info?.message || "Invaild email or password"
-                    });
+                    return res
+                        .status(HTTPSTATUS.UNAUTHORIZED)
+                        .json({ message: info?.message || "Invalid email or password" });
                 }
-
-                req.logIn(user, (err) => {
-                    if (err) {
-                        return next(err);
-                    }
-                    return res.status(HTTPSTATUS.OK).json({
-                        message: "Login Successful",
-                        user,
-                    });
-                })
+                req.logIn(user, (loginErr) => {
+                    if (loginErr) return next(loginErr);
+                    return res.status(HTTPSTATUS.OK).json({ message: "Login Successful", user });
+                });
             }
-        ) (req, res, next);
+        )(req, res, next);
     }
 );
 
-export const logoutUserController = asyncHandler(
-    async (req: Request, res: Response) => {
-        req.logOut((err) => {
-            if (err) {
-                console.error("Logout error", err);
-                return res
-                .status(HTTPSTATUS.INTERNAL_SERVER_ERROR).jsonp({
-                    error: "Failed to Log Out"
-                });
-            }
-        });
-
-        req.session = null;
-        return res.status(HTTPSTATUS.OK).json({ message: "Log Out Successfully"})
-    }
-)
+export const logoutUserController = asyncHandler(async (req: Request, res: Response) => {
+    req.logOut((err) => {
+        if (err) {
+            console.error("Logout error", err);
+            return res
+                .status(HTTPSTATUS.INTERNAL_SERVER_ERROR)
+                .json({ error: "Failed to Log Out" });
+        }
+    });
+    req.session = null;
+    return res.status(HTTPSTATUS.OK).json({ message: "Log Out Successfully" });
+});

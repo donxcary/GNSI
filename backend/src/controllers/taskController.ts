@@ -1,4 +1,4 @@
-import e, { Response, Request } from "express";
+import { Response, Request } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
 import { projectIdSchema } from "../validation/projectValidations";
 import { createTaskSchema, taskIdSchema, updateTaskSchema } from "../validation/taskValidation";
@@ -8,7 +8,7 @@ import { Permissions } from "../enums/role";
 import { getMemberRoleService } from "../service/member.service";
 import { createTaskService, deleteTaskService, getAllTasksService, getTaskByIdService, updateTaskService } from "../service/task.service";
 import { HTTPSTATUS } from "../config/httpConfig";
-import exp from "constants";
+// Removed unused imports
 
 
 
@@ -22,7 +22,7 @@ export const createTaskController = asyncHandler(async (req: Request, res: Respo
     // Role guard here
     roleGuard(role, [Permissions.CREATE_TASK]);
 
-    const { task } = await createTaskService(userId, workspaceId, projectId, body);
+    const { task } = await createTaskService(userId!, workspaceId, projectId, body);
 
     return res.status(HTTPSTATUS.CREATED).json({
         message: "Task created successfully",
@@ -35,34 +35,36 @@ export const updateTaskController = asyncHandler(async (req: Request, res: Respo
     const taskId = taskIdSchema.parse(req.params.taskId);
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.projectId);
-    const userId = req.user?._id;
+    const userId = req.user?.id;
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
     roleGuard(role, [Permissions.EDIT_TASK]);
 
-    const { updatedTask } = await updateTaskService(workspaceId, projectId, taskId, body);
+    const { task } = await updateTaskService(userId!, workspaceId, projectId, taskId, body);
 
     return res.status(HTTPSTATUS.OK).json({
         message: "Task updated successfully",
-        task: updatedTask,
+        task,
     });
 });
 
 
 export const getAllTasksController = asyncHandler(async (req: Request, res: Response) => {
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
-    const userId = req.user?._id;
+    const userId = req.user?.id;
+    const castParam = (v: unknown): string | string[] | undefined => {
+        if (!v) return undefined;
+        if (Array.isArray(v)) return v.map(String);
+        return String(v);
+    };
     const filters = {
-        workspace: workspaceId,
-        projectId: req.query.projectId as string | undefined,
-        ...(req.query.priority && { priority: req.query.priority }),
-        ...(req.query.status && { status: req.query.status }),
-        ...(req.query.assignedTo && { assignedTo: req.query.assignedTo }),
-        // ...(req.query.dueDate && { dueDate: req.query.dueDate }),
-        // ...(req.query.keyword && { keyword: req.query.keyword }),
-        keyword: req.query.keyword as string | undefined,
-        dueDate: req.query.dueDate as string | undefined,
-    }; // Define your filters here
+        projectId: castParam(req.query.projectId) as string | undefined,
+        priority: castParam(req.query.priority),
+        status: castParam(req.query.status),
+        assignedTo: castParam(req.query.assignedTo),
+        keyword: castParam(req.query.keyword) as string | undefined,
+        dueDate: castParam(req.query.dueDate) as string | undefined,
+    };
 
     const pagination = {
         pageSize: parseInt(req.query.pageSize as string) || 10,
@@ -73,19 +75,15 @@ export const getAllTasksController = asyncHandler(async (req: Request, res: Resp
     // Role guard here
     roleGuard(role, [Permissions.VIEW_ONLY]);
 
-    const { result } = await getAllTasksService(workspaceId, filters, pagination);
-
-    return res.status(HTTPSTATUS.OK).json({
-        message: "Tasks retrieved successfully",
-        ... result,
-    });
+    const result = await getAllTasksService(workspaceId, filters, pagination);
+    return res.status(HTTPSTATUS.OK).json({ message: "Tasks retrieved successfully", ...result });
 });
 
 export const getTaskByIdController = asyncHandler(async (req: Request, res: Response) => {
     const taskId = taskIdSchema.parse(req.params.id);
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
     const projectId = projectIdSchema.parse(req.params.projectId);
-    const userId = req.user?._id;
+    const userId = req.user?.id;
 
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here
@@ -102,7 +100,7 @@ export const getTaskByIdController = asyncHandler(async (req: Request, res: Resp
 export const deleteTaskController = asyncHandler(async (req: Request, res: Response) => {
     const taskId = taskIdSchema.parse(req.params.id);
     const workspaceId = workspaceIdSchema.parse(req.params.workspaceId);
-    const userId = req.user?._id;
+    const userId = req.user?.id;
 
     const { role } = await getMemberRoleService(userId, workspaceId);
     // Role guard here

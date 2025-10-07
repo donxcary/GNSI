@@ -1,5 +1,5 @@
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
-import e, { Request, Response } from "express";
+import { Request, Response } from "express";
 import { createProjectService, deleteProjectService, getAllProjectsService, getProjectAnalyticsService, getProjectByIdService, updateProjectService } from "../service/project.service";
 import { createProjectControllerSchema, projectIdSchema, updateProjectSchema } from "../validation/projectValidations";
 import { workspaceIdSchema } from "../validation/workspaceValidation";
@@ -7,7 +7,7 @@ import { getMemberRoleService } from "../service/member.service";
 import { roleGuard } from "../utils/roleGuard";
 import { Permissions } from "../enums/role";
 import { HTTPSTATUS } from "../config/httpConfig";
-import exp from "constants";
+// Removed unused import 'constants'
 
 
 export const createProjectController = asyncHandler(async (req: Request, res: Response) => {
