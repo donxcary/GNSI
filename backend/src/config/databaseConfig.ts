@@ -3,7 +3,9 @@ import { config } from "./appConfig";
 
 const connectDB = async () => {
     try {
-        await mongoose.connect(config.MONGODB_URI);
+        await mongoose.connect(config.MONGODB_URI, {
+            directConnection: true,
+        });
         console.log("MongoDB connected");
     } catch (error) {
         console.error("MongoDB connection error:", error);

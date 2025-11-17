@@ -7,6 +7,7 @@ const passport_1 = __importDefault(require("passport"));
 const passport_google_oauth20_1 = require("passport-google-oauth20");
 const passport_github2_1 = require("passport-github2");
 const passport_facebook_1 = require("passport-facebook");
+const passport_local_1 = require("passport-local");
 const appConfig_1 = require("./appConfig");
 const appError_1 = require("../utils/appError");
 const accProvider_1 = require("../enums/accProvider");
@@ -93,5 +94,18 @@ if (appConfig_1.config.FACEBOOK_CLIENT_ID && appConfig_1.config.FACEBOOK_CLIENT_
         }
     }));
 }
+passport_1.default.use(new passport_local_1.Strategy({
+    usernameField: "email",
+    passwordField: "password",
+    session: true
+}, async (email, password, done) => {
+    try {
+        const user = await (0, auth_service_1.verifyUserService)({ email, password });
+        return done(null, user);
+    }
+    catch (error) {
+        return done(error, false, { message: error?.message });
+    }
+}));
 passport_1.default.serializeUser((user, done) => done(null, user));
 passport_1.default.deserializeUser((user, done) => done(null, user));
