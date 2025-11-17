@@ -1,5 +1,6 @@
 import './App.css';
 import { HealthCheck } from './components/HealthCheck';
+import { Register } from './components/Register';
 import NavBar from './components/navBar/NavBar';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
@@ -15,6 +16,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Page title="Home" />} />
           <Route path="/about" element={<Page title="About" />} />
           <Route path="/contact" element={<Page title="Contact" />} />
+          <Route path="/register" element={<Register />} />
         </Routes>
       </div>
     </Router>

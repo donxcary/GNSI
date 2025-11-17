@@ -16,4 +16,5 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
 
 export const api = {
   health: () => request<{ status: string }>('/health'),
+  getAllRanks: () => request<Array<{ _id: string; name: string; permissions: string[] }>>('/roles'),
 };

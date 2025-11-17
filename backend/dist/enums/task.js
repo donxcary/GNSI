@@ -7,6 +7,7 @@ exports.TaskStatusEnum = {
     IN_PROGRESS: "in-progress",
     IN_REVIEW: "in-review",
     DONE: "done",
+    ARCHIVED: "archived",
 };
 exports.TaskPriorityEnum = {
     LOW: "low",
