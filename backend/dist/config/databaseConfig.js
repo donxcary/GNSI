@@ -7,7 +7,9 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const appConfig_1 = require("./appConfig");
 const connectDB = async () => {
     try {
-        await mongoose_1.default.connect(appConfig_1.config.MONGODB_URI);
+        await mongoose_1.default.connect(appConfig_1.config.MONGODB_URI, {
+            directConnection: true,
+        });
         console.log("MongoDB connected");
     }
     catch (error) {
